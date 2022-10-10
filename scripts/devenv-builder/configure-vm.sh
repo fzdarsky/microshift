@@ -6,6 +6,13 @@
 set -eo pipefail
 
 ENABLE_DEV_REPO="false"
+OS_ID=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
+OS_VERSION=$(grep -oP '(?<=VERSION_ID=).+' /etc/os-release | tr -d '"')
+OS_VERSION_MAJOR=$(echo ${OS_VERSION} | cut -f1 -d'.')
+OS_VERSION_MINOR=$(echo ${OS_VERSION} | cut -f2 -d'.')
+OCP_VERSION_MINOR="12"
+OCP_RPM_REPO="rhocp-4.11-for-rhel-${OS_VERSION_MAJOR}-$(uname -i)-rpms"
+[ "${OS_VERSION_MAJOR}" -gt "8" ] && OCP_RPM_REPO=""
 
 function usage() {
     echo "Usage: $(basename $0) [--enable-dev-repo] <openshift-pull-secret-file>"
@@ -17,10 +24,13 @@ function usage() {
     exit 1
 }
 
-if [ $# -lt 1 ]; then
-    usage "Missing argument."
-fi
+case "${OS_ID}" in
+    "rhel") ;;
+    *)      usage "This script does not support running on '${OS_ID}'." ;;
+esac
+
 # Parse the command line
+[ $# -lt 1 ] && usage "Missing argument."
 while [ $# -gt 1 ] ; do
     case $1 in
     --enable-dev-repo)
@@ -32,6 +42,8 @@ while [ $# -gt 1 ] ; do
         ;;
     esac
 done
+
+[ "${OS_VERSION_MAJOR}" -gt "8" ] && [ "${ENABLE_DEV_REPO}" == "false" ] && usage "Must enable dev repo if running on RHEL > 8."
 
 OCP_PULL_SECRET=$(realpath $1)
 [ ! -f "${OCP_PULL_SECRET}" ] && usage "OpenShift pull secret ${OCP_PULL_SECRET} does not exist or is not a regular file."
@@ -70,10 +82,10 @@ make srpm
 if [[ "${ENABLE_DEV_REPO}" == "true" ]]; then
     if curl --output /dev/null --silent --head --fail "http://download.lab.bos.redhat.com"; then
         echo -e "\E[32mSuccessfully reached http://download.lab.bos.redhat.com, configuring prerelease repo.\E[00m"
-        sudo tee /etc/yum.repos.d/internal-rhocp-4.12-for-rhel-8-rpms.repo >/dev/null <<EOF
-[internal-rhocp-4.12-for-rhel-8-rpms]
-name=Puddle of the rhocp-4.12 RPMs for RHEL8
-baseurl=http://download.lab.bos.redhat.com/rcm-guest/puddles/RHAOS/plashets/4.12-el8/building/\$basearch/os/
+        sudo tee "/etc/yum.repos.d/internal-rhocp-4.${OCP_VERSION_MINOR}-for-rhel-${OS_VERSION_MAJOR}-rpms.repo" >/dev/null <<EOF
+[internal-rhocp-4.${OCP_VERSION_MINOR}-for-rhel-${OS_VERSION_MAJOR}-rpms]
+name=Puddle of the rhocp-4.${OCP_VERSION_MINOR} RPMs for RHEL${OS_VERSION_MAJOR}
+baseurl=http://download.lab.bos.redhat.com/rcm-guest/puddles/RHAOS/plashets/4.${OCP_VERSION_MINOR}-el${OS_VERSION_MAJOR}/building/\$basearch/os/
 enabled=1
 gpgcheck=0
 skip_if_unavailable=1
@@ -83,7 +95,8 @@ EOF
         exit 1
     fi
 fi
-sudo subscription-manager repos --enable rhocp-4.11-for-rhel-8-$(uname -i)-rpms --enable fast-datapath-for-rhel-8-$(uname -i)-rpms
+[ -n "${OCP_RPM_REPO}" ] && sudo subscription-manager repos --enable "${OCP_RPM_REPO}"
+sudo subscription-manager repos --enable fast-datapath-for-rhel-${OS_VERSION_MAJOR}-$(uname -i)-rpms
 sudo dnf localinstall -y ~/microshift/_output/rpmbuild/RPMS/*/*.rpm
 
 sudo cp -f ${OCP_PULL_SECRET} /etc/crio/openshift-pull-secret

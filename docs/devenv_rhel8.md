@@ -3,11 +3,11 @@ The development environment bootstrap and configuration procedures are automated
 It is recommended to review the current document and use the automation instructions to create and configure the environment.
 
 ## Create Development Virtual Machine
-Start by downloading the RHEL 8.6 or above ISO image from the https://developers.redhat.com/products/rhel/download location. 
-> RHEL 9.x operating system is not currently supported.
+Start by downloading the RHEL 8.6 or above ISO image from the https://developers.redhat.com/products/rhel/download location.
+> RHEL 9.x operating system is currently only supported for testing.
 
 ### Creating VM
-Create a RHEL 8 virtual machine with 2 cores, 4096MB of RAM and 50GB of storage. 
+Create a RHEL virtual machine with 2 cores, 4096MB of RAM and 50GB of storage.
 > Visual Studio Code may consume around 2GB of RAM. For running the IDE on the development virtual machine, it is recommended to allocate at least 6144MB of RAM in total.
 
 Move the ISO image to `/var/lib/libvirt/images` directory and run the following command to create a virtual machine.

@@ -113,10 +113,10 @@ build_image() {
         sudo podman run -d --name=${parent_blueprint}-server -p 8080:8080 localhost/${parent_blueprint}:${parent_version}
 
         title "Building ${image_type} for ${blueprint} v${version}, parent ${parent_blueprint} v${parent_version}"
-        buildid=$(sudo composer-cli compose start-ostree --ref rhel/8/${BUILD_ARCH}/edge --url http://localhost:8080/repo/ ${blueprint} ${image_type} | awk '{print $2}')
+        buildid=$(sudo composer-cli compose start-ostree --ref rhel/${OS_VERSION_MAJOR}/${BUILD_ARCH}/edge --url http://localhost:8080/repo/ ${blueprint} ${image_type} | awk '{print $2}')
     else
         title "Building ${image_type} for ${blueprint} v${version}"
-        buildid=$(sudo composer-cli compose start-ostree --ref rhel/8/${BUILD_ARCH}/edge ${blueprint} ${image_type} | awk '{print $2}')
+        buildid=$(sudo composer-cli compose start-ostree --ref rhel/${OS_VERSION_MAJOR}/${BUILD_ARCH}/edge ${blueprint} ${image_type} | awk '{print $2}')
     fi
 
     waitfor_image ${buildid}
@@ -228,14 +228,14 @@ createrepo microshift-local >/dev/null
 # Download openshift local RPM packages (noarch for python and selinux packages)
 rm -rf openshift-local 2>/dev/null || true
 reposync -n -a ${BUILD_ARCH} -a noarch --download-path openshift-local \
-            --repo=rhocp-4.11-for-rhel-8-${BUILD_ARCH}-rpms \
-            --repo=fast-datapath-for-rhel-8-${BUILD_ARCH}-rpms >/dev/null
+            --repo=rhocp-4.11for-rhel-${OS_VERSION_MAJOR}-${BUILD_ARCH}-rpms \
+            --repo=fast-datapath-for-rhel-${OS_VERSION_MAJOR}-${BUILD_ARCH}-rpms >/dev/null
 
 # Remove coreos packages to avoid conflicts
 find openshift-local -name \*coreos\* -exec rm -f {} \;
 # Exit if no RPM packages were found
 if [ $(find openshift-local -name '*.rpm' | wc -l) -eq 0 ] ; then
-    echo "No RPM packages were found at the 'rhocp-4.11-for-rhel-8-${BUILD_ARCH}-rpms' repository. Exiting..."
+    echo "No RPM packages were found at the 'rhocp-4.11-for-rhel-${OS_VERSION_MAJOR}-${BUILD_ARCH}-rpms' repository. Exiting..."
     exit 1
 fi
 createrepo openshift-local >/dev/null
